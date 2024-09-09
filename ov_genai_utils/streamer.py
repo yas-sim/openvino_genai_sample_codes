@@ -7,11 +7,13 @@ class OpenVINO_GenAI_Streamer:
         self.queue = []
         self.queue_lock = threading.Lock()
         self.llm_thread = None
+        self.abort_flag = False
     
     def callback(self, token):
         self.queue_lock.acquire()
         self.queue.append(token)
         self.queue_lock.release()
+        return self.abort_flag
 
     def __iter__(self):
         return self
@@ -33,6 +35,10 @@ class OpenVINO_GenAI_Streamer:
         return token
 
     def generate(self, prompt, **kwargs):
+        self.abort_flag = False
         kwargs['streamer'] = self.callback
         self.llm_thread = threading.Thread(target=self.pipe.generate, args=(prompt, ), kwargs=kwargs)
         self.llm_thread.start()
+
+    def stop_generation(self):
+        self.abort_flag = True
